@@ -1,0 +1,43 @@
+# Copyright (C) 2025, Tushaar Gangavarapu <TG352@cornell.edu>.
+# All rights reserved.
+# Distributed under the MIT License. See LICENSE for details.
+
+# Modified from: https://github.com/NVIDIA/cuda-quantum/blob/main/.clang-format using
+# https://bcain-llvm.readthedocs.io/projects/clang/en/latest/ClangFormatStyleOptions.
+AlignAfterOpenBracket: BlockIndent
+AlignEscapedNewlines: Left
+AlignOperands: true
+AlignTrailingComments: true
+AllowShortFunctionsOnASingleLine: Empty
+AlwaysBreakTemplateDeclarations: true
+BasedOnStyle: LLVM
+BinPackArguments: false
+BinPackParameters: false
+ColumnLimit: 88
+ContinuationIndentWidth: 4
+Cpp11BracedListStyle: true
+FixNamespaceComments: true
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex: "^<"
+    Priority: 4
+  - Regex: '^"(llvm|llvm-c|clang|clang-c|mlir|mlir-c)/'
+    Priority: 3
+  - Regex: '^"(qoda|\.\.)/'
+    Priority: 2
+  - Regex: ".*"
+    Priority: 1
+IndentCaseLabels: true
+IndentWidth: 4
+IndentWrappedFunctionNames: false
+InsertNewlineAtEOF: Yes
+InsertTrailingCommas: Wrapped
+JavaScriptQuotes: Double
+KeepEmptyLinesAtTheStartOfBlocks: false
+Language: Cpp
+NamespaceIndentation: None
+PointerAlignment: Right
+ReflowComments: true
+SpacesBeforeTrailingComments: 2
+TabWidth: 4
+UseTab: Always
