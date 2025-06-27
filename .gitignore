@@ -5,6 +5,7 @@
 # Build and other artifacts.
 build/
 benchmark/
+profile/
 cmake/
 .cache/
 sgemm

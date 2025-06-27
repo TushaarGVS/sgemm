@@ -3,23 +3,16 @@
 # Distributed under the MIT License. See LICENSE for details.
 
 # For details about phony targets, see: https://stackoverflow.com/a/2145605.
-.PHONY: 
-	all 
-	build 
-	debug 
-	clean 
-	profile 
-	bench 
+.PHONY: all build debug clean profile bench 
 
 CMAKE := cmake
 BUILD_DIR := build
+PROFILE_DIR := profile
 BENCHMARK_DIR := benchmark
 
 # Build in release mode and benchmark.
 # Usage: `make all`
-all: 
-	build
-	bench
+all: build bench
 
 # Build in release mode.
 # Usage: `make build`.
@@ -56,26 +49,25 @@ clean:
 # Remove the build dir.
 	@echo "Removing \`$(BUILD_DIR)\` dir ..."
 	@rm -rf $(BUILD_DIR)
-	@echo "\`$(BUILD_DIR)\` dir removed; \`$(BENCHMARK_DIR)\` dir was retained."
+	@echo "\`$(BUILD_DIR)\` dir removed."
 
-# Profiling a kernel using NVIDIA Nsight Compute. Once built, `$BUILD_DIR/sgemm`
-# will be the executable (see `CMakeLists.txt` -> `add_executable`).
-# Usage: `make profile KERNEL=<int> PREFIX=<optional-str>`.
+# Profiling a kernel using NVIDIA Nsight Compute.
+# Once built, `./sgemm` will be the executable (see `add_executable` in CMakeLists.txt).
+# Usage: `make profile KERNEL=<int>`.
 profile:
-	@echo "Profiling \`$(PREFIX)kernel_$(KERNEL)\` kernel ..."
-	build
+	@echo "Profiling kernel-$(KERNEL) ..."
+	@mkdir -p $(PROFILE_DIR)
+# --set full: use the full metric set, i.e., memory throughput, SM util, etc.
 	@ncu \
-		--set full \  # use the full metric set (e.g., memory throughput, SM util, etc.)
-		--export $(BENCHMARK_DIR)/$(PREFIX)kernel_$(KERNEL) \  # export filepath
-		--force-overwrite \  # force overwrite benchmark file with the same name
-		$(BUILD_DIR)/sgemm \  # path to the executable
-		$(KERNEL)  # specific function to profile
-	@ncu-ui $(BENCHMARK_DIR)/$(PREFIX)kernel_$(KERNEL).ncu-rep
+		--set full \
+		--export $(PROFILE_DIR)/$(KERNEL) \
+		--force-overwrite \
+		./sgemm $(KERNEL)
+	@ncu-ui $(PROFILE_DIR)/$(KERNEL).ncu-rep
 
 # Benchmarking the kernel.
 # Usage: `make bench`.
 bench:
 	@echo "Benchmarking to \`$(BENCHMARK_DIR)\` dir ..."
-	build
 	@mkdir -p $(BENCHMARK_DIR)
 	@bash benchmark.sh

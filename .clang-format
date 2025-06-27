@@ -40,4 +40,3 @@ PointerAlignment: Right
 ReflowComments: true
 SpacesBeforeTrailingComments: 2
 TabWidth: 4
-UseTab: Always
