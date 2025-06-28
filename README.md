@@ -46,4 +46,4 @@ make profile KERNEL=<kernel-num>
 
 NOTE: You might need sudo access to run `ncu` since it accesses the GPU Performance
 Counters. For more info, see:
-https://developer.nvidia.com/nvidia-development-tools-solutions-err_nvgpuctrperm-permission-issue-performance-counters
+https://developer.nvidia.com/nvidia-development-tools-solutions-err_nvgpuctrperm-permission-issue-performance-counters.

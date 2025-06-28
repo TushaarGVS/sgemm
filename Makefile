@@ -43,13 +43,15 @@ debug:
 	@$(MAKE) -C $(BUILD_DIR)
 	@echo "Debug build complete."
 
-# Clean up the build dir.
+# Clean up the build, profile, and benchmark dirs.
 # Usage: `make clean`.
 clean:
-# Remove the build dir.
-	@echo "Removing \`$(BUILD_DIR)\` dir ..."
+# Remove the build, profile, and benchmark dirs.
+	@echo "Removing \`$(BUILD_DIR)\`, \`$(PROFILE_DIR)\`, \`$(BENCHMARK_DIR)\` dirs ..."
 	@rm -rf $(BUILD_DIR)
-	@echo "\`$(BUILD_DIR)\` dir removed."
+	@rm -rf $(PROFILE_DIR)
+	@rm -rf $(BENCHMARK_DIR)
+	@echo "Removed \`$(BUILD_DIR)\`, \`$(PROFILE_DIR)\`, \`$(BENCHMARK_DIR)\` dirs."
 
 # Profiling a kernel using NVIDIA Nsight Compute.
 # Once built, `./sgemm` will be the executable (see `add_executable` in CMakeLists.txt).
@@ -68,6 +70,34 @@ profile:
 # Benchmarking the kernel.
 # Usage: `make bench`.
 bench:
-	@echo "Benchmarking to \`$(BENCHMARK_DIR)\` dir ..."
+	@echo "Benchmarking all kernels to \`$(BENCHMARK_DIR)\` dir ..."
 	@mkdir -p $(BENCHMARK_DIR)
-	@bash benchmark.sh
+	@count=$(shell ls ./csrc/kernels | wc -l); \
+	for kernel in $$(seq 0 $$count); do \
+		echo "Benchmarking kernel-$$kernel ..." && \
+		./sgemm $$kernel | \
+		awk '\
+			/--- PERFORMANCE ---/ {capture=1; next} \
+			capture && /^\+\s/ { \
+				key = tolower($$2); \
+				val = $$4; \
+				gsub("s|GFLOPs/s|TFLOPs/s|GB/s|TB/s", "", val); \
+				metrics[key] = val; \
+				next \
+			} \
+			/-------------------/ && capture { \
+				printf("{"); \
+				i = 0; \
+				for (m in metrics) { \
+					if (i++ > 0) printf(", "); \
+					printf("\"%s\": %s", m, metrics[m]); \
+				} \
+				printf("}\n"); \
+				capture = 0; \
+				delete metrics; \
+			} \
+		' > $(BENCHMARK_DIR)/$$kernel.jsonl; \
+		sleep 2; \
+	done
+	@echo "Benchmarking complete, plotting results ..."
+	@python3 plt_bench.py

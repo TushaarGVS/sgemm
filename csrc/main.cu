@@ -70,7 +70,12 @@ int main(int argc, char **argv) {
     float *C = (float *)std::malloc(numbytes);
     // Allocate memory for the cuBLAS reference which is dummy for now, but will be
     // used to copy device-to-host later.
-    float *CRef = (float *)std::malloc(numbytes);
+    float *CRef = nullptr;
+    if (kernelNum != 0) {
+        // NOTE: We don't need to allocate memory for `CRef` if `kernelNum == 0`,
+        // since kernel-0 is the cuBLAS reference.
+        CRef = (float *)std::malloc(numbytes);
+    }
 
     // Generate random matrices.
     sgemm::utils::randomizeMatrix(A, numel);
@@ -79,18 +84,23 @@ int main(int argc, char **argv) {
 
     // Allocate memory for the device matrices.
     // Convention: `_d` -> device.
-    float *d_A = nullptr, *d_B = nullptr, *d_C = nullptr, *d_CRef = nullptr;
+    float *d_A = nullptr, *d_B = nullptr, *d_C = nullptr;
+    float *d_CRef = nullptr;
     CUDA_CHECK(cudaMalloc(&d_A, numbytes));
     CUDA_CHECK(cudaMalloc(&d_B, numbytes));
     CUDA_CHECK(cudaMalloc(&d_C, numbytes));
-    CUDA_CHECK(cudaMalloc(&d_CRef, numbytes));
+    if (kernelNum != 0) {
+        CUDA_CHECK(cudaMalloc(&d_CRef, numbytes));
+    }
     // Copy the host matrices to the device.
     CUDA_CHECK(cudaMemcpy(d_A, A, numbytes, cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(d_B, B, numbytes, cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(d_C, C, numbytes, cudaMemcpyHostToDevice));
     // NOTE: We use `C` while copying to `d_CRef` and NOT `CRef`, which is currently
     // a dummy memory placeholder.
-    CUDA_CHECK(cudaMemcpy(d_CRef, C, numbytes, cudaMemcpyHostToDevice));
+    if (kernelNum != 0) {
+        CUDA_CHECK(cudaMemcpy(d_CRef, C, numbytes, cudaMemcpyHostToDevice));
+    }
 
     // --- KERNEL EXECUTION ---
     // Run the kernel for each size.
@@ -140,20 +150,22 @@ int main(int argc, char **argv) {
         // Compute and log runtime and FLOPs. For details, see:
         // https://docs.jax.dev/en/latest/pallas/tpu/matmul.html#matrix-multiplication-performance.
         elapsedTimeInSecs = elapsedTimeInSecs / 1000.0f;
-        float totFLOPs = (nRepeats * 2.0f * M * K * N * 1e-9f);
-        float totMemAccess = nRepeats * (M * K + K * N + M * N) * sizeof(float) * 1e-9f;
+        // GEMM FLOPs: 2MKN (for D := alpha * AB) + 2MN (for C := D + beta*C).
+        float tflops = (2.0f * M * K * N + 2.0f * M * N) * 1e-12f;  // teraflops
+        // GEMM memory access: MK + KN + MN reads and MN writes.
+        float memAccessGb = (M * K + K * N + 2.0f * M * N) * sizeof(float) * 1e-9f;
         // clang-format off
 		fmt::println(
 			R"(--- PERFORMANCE ---
 + {:<15}: {}
 + {:<15}: {}s
-+ {:<15}: {}GFLOPS
++ {:<15}: {}TFLOPs/s
 + {:<15}: {}GB/s
 -------------------)",
 			"Size", size,
-			"Average runtime", elapsedTimeInSecs / nRepeats,
-			"Performance", totFLOPs / elapsedTimeInSecs,
-			"Bandwidth", totMemAccess / elapsedTimeInSecs
+			"Runtime", elapsedTimeInSecs / nRepeats,
+			"Performance", tflops * nRepeats / elapsedTimeInSecs,
+			"Bandwidth", memAccessGb * nRepeats / elapsedTimeInSecs
 		);
         // clang-format on
 
@@ -161,7 +173,9 @@ int main(int argc, char **argv) {
         // Reset the device memory to be the same as `d_CRef`.
         // Currently, `d_C` and `d_CRef` are not the same, which will cause problems
         // in the next run (with the next `size` in `sizes`).
-        CUDA_CHECK(cudaMemcpy(d_C, d_CRef, numbytes, cudaMemcpyDeviceToDevice));
+        if (kernelNum != 0) {
+            CUDA_CHECK(cudaMemcpy(d_C, d_CRef, numbytes, cudaMemcpyDeviceToDevice));
+        }
     }
 
     // --- CLEANUP ---
@@ -169,7 +183,9 @@ int main(int argc, char **argv) {
     std::free(A);
     std::free(B);
     std::free(C);
-    std::free(CRef);
+    if (kernelNum != 0) {
+        std::free(CRef);
+    }
 
     // Free the device memory.
     CUDA_CHECK(cudaFree(d_A));
