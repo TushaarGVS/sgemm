@@ -23,13 +23,13 @@ __global__ void sgemm_naive(
 
     // Move `blockIdx` number of blocks and then move `threadIdx` number of threads
     // within that block.
-    uint x = blockIdx.x * blockDim.x + threadIdx.x;
-    uint y = blockIdx.y * blockDim.y + threadIdx.y;
+    const uint x = blockIdx.x * blockDim.x + threadIdx.x;
+    const uint y = blockIdx.y * blockDim.y + threadIdx.y;
 
-    // Compute: acc = A[x]*B[:,y].
-    // Accessing row-x: move over `x` times, each time, by K elements.
-    // Accession col-y: move in steps of N (0, N, 2N, ...), offset by `y` each time.
     if (x < M && y < N) {
+        // Compute: acc = A[x]*B[:,y].
+        // Accessing row-x: move over `x` times, each time, by K elements.
+        // Accession col-y: move in steps of N (0, N, 2N, ...), offset by `y` each time.
         float acc = 0.0f;  // typecast aside: https://stackoverflow.com/a/5199515
         for (int i = 0; i < K; i++) {
             acc += A[x * K + i] * B[y + i * N];

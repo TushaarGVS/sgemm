@@ -100,6 +100,7 @@ add_executable(
     csrc/runner.cu
     csrc/runner.cuh
     csrc/kernels/1_sgemm_naive.cuh
+    csrc/kernels/2_sgemm_gmem_coalesce.cuh
 )
 target_link_libraries(sgemm PRIVATE CUDA::cudart CUDA::cublas)
 # Set the output directory to the source directory (it is otherwise set to the 

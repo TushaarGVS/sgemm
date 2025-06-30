@@ -19,6 +19,7 @@ mpl.rcParams["savefig.bbox"] = "tight"
 KERNEL_IDX_TO_NAME = {
     0: "cuBLAS",
     1: "Naive",
+    2: "GMEM coalesced",
 }
 
 
@@ -40,8 +41,8 @@ def plot_perf(
     output_dir: str,
     perf_colname: str,
     *,
-    xscale: Literal["linear", "log"] = "linear",
-    yscale: Literal["linear", "log"] = "linear",
+    xscale: Literal["linear", "log", "log2"] = "linear",
+    yscale: Literal["linear", "log", "log2"] = "linear",
     also_save_svg: bool = False,
 ):
     os.makedirs(output_dir, exist_ok=True)
@@ -50,8 +51,14 @@ def plot_perf(
     colors = sns.color_palette("viridis")
     plt.xlabel("M = K = N")
     plt.ylabel(perf_colname)
-    plt.xscale(xscale)
-    plt.yscale(yscale)
+    if xscale == "log2":
+        plt.xscale("log", base=2)
+    else:
+        plt.xscale(xscale)
+    if yscale == "log2":
+        plt.yscale("log2")
+    else:
+        plt.yscale(yscale)
 
     for kernel_idx, kernel_name in KERNEL_IDX_TO_NAME.items():
         data = read_jsonl(os.path.join(benchmark_dir, f"{kernel_idx}.jsonl"))
@@ -63,7 +70,7 @@ def plot_perf(
         # Don't use the legend; instead, add the text to the plot.
         plt.text(
             data["size"][-1] + 50,
-            data[perf_colname][-1] + 500,
+            data[perf_colname][-1],
             f"{kernel_idx}: {kernel_name}",
             fontsize=12,
             ha="left",
@@ -89,7 +96,7 @@ if __name__ == "__main__":
             benchmark_dir=benchmark_dir,
             output_dir=output_dir,
             perf_colname=perf_colname,
-            xscale="linear",
-            yscale="linear",
+            xscale="log2",
+            yscale="log",
             also_save_svg=True if perf_colname == "tflops/s" else False,
         )

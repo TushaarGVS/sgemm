@@ -51,7 +51,7 @@ int main(int argc, char **argv) {
 
     // --- RUN CONFIG ---
     // We will run kernels with square matrices of the following sizes.
-    std::vector<uint> sizes = {128, 256, 512, 1024, 2048, 4096};
+    std::vector<uint> sizes = {128, 256, 512, 1024, 2048, 4096, 8192};
     float alpha = 0.5f, beta = 0.3f;
     fmt::println(
         "Running `C := {}AB + {}C` with square matrices of sizes: {}",
@@ -132,6 +132,7 @@ int main(int argc, char **argv) {
                     sgemm::utils::printMatrix(C, size, size, "C");
                     sgemm::utils::printMatrix(CRef, size, size, "CRef");
                 }
+                exit(EXIT_FAILURE);
             }
         }
 

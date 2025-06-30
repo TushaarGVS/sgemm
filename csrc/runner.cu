@@ -6,6 +6,7 @@
  */
 
 #include "kernels/1_sgemm_naive.cuh"
+#include "kernels/2_sgemm_gmem_coalesce.cuh"
 #include "runner.cuh"
 
 #include <cstdlib>
@@ -122,9 +123,19 @@ void runKernel(
             break;
         }
         case 1: {
+            // Naive SGEMM kernel.
             dim3 gridDim(CEIL_DIV(M, 32), CEIL_DIV(N, 32));
             dim3 blockDim(32, 32);
             sgemm::kernels::sgemm_naive<<<gridDim, blockDim>>>(
+                A, B, C, alpha, beta, M, K, N
+            );
+            break;
+        }
+        case 2: {
+            // SGEMM kernel with coalesced global memory access.
+            dim3 gridDim(CEIL_DIV(M, 32), CEIL_DIV(N, 32));
+            dim3 blockDim(32, 32);
+            sgemm::kernels::sgemm_gmem_coalesce<<<gridDim, blockDim>>>(
                 A, B, C, alpha, beta, M, K, N
             );
             break;
