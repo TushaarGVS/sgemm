@@ -9,6 +9,7 @@ profile/
 cmake/
 .cache/
 sgemm
+plots/*.svg
 
 # Prerequisites
 *.d

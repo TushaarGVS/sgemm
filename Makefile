@@ -9,10 +9,11 @@ CMAKE := cmake
 BUILD_DIR := build
 PROFILE_DIR := profile
 BENCHMARK_DIR := benchmark
+PLOTS_DIR := plots
 
-# Build in release mode and benchmark.
-# Usage: `make all`
-all: build bench
+# Clean, then build in release mode and benchmark.
+# Usage: `make all`.
+all: clean build bench
 
 # Build in release mode.
 # Usage: `make build`.
@@ -46,12 +47,17 @@ debug:
 # Clean up the build, profile, and benchmark dirs.
 # Usage: `make clean`.
 clean:
-# Remove the build, profile, and benchmark dirs.
-	@echo "Removing \`$(BUILD_DIR)\`, \`$(PROFILE_DIR)\`, \`$(BENCHMARK_DIR)\` dirs ..."
+# Remove the build, profile, benchmark, and plots dirs.
+	@echo "Removing ..."
+	@echo " + \`$(BUILD_DIR)\`"
+	@echo " + \`$(PROFILE_DIR)\`"
+	@echo " + \`$(BENCHMARK_DIR)\`"
+	@echo " + \`$(PLOTS_DIR)\`"
 	@rm -rf $(BUILD_DIR)
 	@rm -rf $(PROFILE_DIR)
 	@rm -rf $(BENCHMARK_DIR)
-	@echo "Removed \`$(BUILD_DIR)\`, \`$(PROFILE_DIR)\`, \`$(BENCHMARK_DIR)\` dirs."
+	@rm -rf $(PLOTS_DIR)
+	@echo "Done."
 
 # Profiling a kernel using NVIDIA Nsight Compute.
 # Once built, `./sgemm` will be the executable (see `add_executable` in CMakeLists.txt).
@@ -99,5 +105,6 @@ bench:
 		' > $(BENCHMARK_DIR)/$$kernel.jsonl; \
 		sleep 2; \
 	done
-	@echo "Benchmarking complete, plotting results ..."
-	@python3 plt_bench.py
+	@echo "Benchmarking complete, plotting results to \`$(PLOTS_DIR)\` dir ..."
+	@python3 plot_perf.py
+	@echo "Done."

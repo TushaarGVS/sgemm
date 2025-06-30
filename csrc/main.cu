@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
     }
 
     // Use CUDA events to time the kernel.
-    float elapsedTimeInSecs = 0.0f;
+    float elapsedTime = 0.0f;
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
@@ -145,15 +145,17 @@ int main(int argc, char **argv) {
         cudaEventRecord(stop);
         cudaEventSynchronize(start);
         cudaEventSynchronize(stop);
-        cudaEventElapsedTime(&elapsedTimeInSecs, start, stop);
+        // NOTE: `cudaEventElapsedTime` returns the time in milliseconds. For reference,
+        // see: https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__EVENT.html.
+        cudaEventElapsedTime(&elapsedTime, start, stop);
 
         // Compute and log runtime and FLOPs. For details, see:
         // https://docs.jax.dev/en/latest/pallas/tpu/matmul.html#matrix-multiplication-performance.
-        elapsedTimeInSecs = elapsedTimeInSecs / 1000.0f;
+        elapsedTime /= 1000.0f;  // elapsed time in seconds
         // GEMM FLOPs: 2MKN (for D := alpha * AB) + 2MN (for C := D + beta*C).
-        float tflops = (2.0f * M * K * N + 2.0f * M * N) * 1e-12f;  // teraflops
+        float flops = 2.0f * M * K * N + 2.0f * M * N;
         // GEMM memory access: MK + KN + MN reads and MN writes.
-        float memAccessGb = (M * K + K * N + 2.0f * M * N) * sizeof(float) * 1e-9f;
+        float memAccess = (M * K + K * N + 2.0f * M * N) * sizeof(float);
         // clang-format off
 		fmt::println(
 			R"(--- PERFORMANCE ---
@@ -163,9 +165,9 @@ int main(int argc, char **argv) {
 + {:<15}: {}GB/s
 -------------------)",
 			"Size", size,
-			"Runtime", elapsedTimeInSecs / nRepeats,
-			"Performance", tflops * nRepeats / elapsedTimeInSecs,
-			"Bandwidth", memAccessGb * nRepeats / elapsedTimeInSecs
+			"Runtime", elapsedTime / nRepeats,
+			"Performance", flops * 1e-12f * nRepeats / elapsedTime,
+			"Bandwidth", memAccess * 1e-9f * nRepeats / elapsedTime
 		);
         // clang-format on
 
@@ -192,6 +194,9 @@ int main(int argc, char **argv) {
     CUDA_CHECK(cudaFree(d_B));
     CUDA_CHECK(cudaFree(d_C));
     CUDA_CHECK(cudaFree(d_CRef));
+
+    // Destroy the cuBLAS handle.
+    cublasDestroy(handle);
 
     // Destroy the CUDA events.
     cudaEventDestroy(start);
