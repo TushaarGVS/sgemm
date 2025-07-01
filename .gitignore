@@ -10,6 +10,7 @@ cmake/
 .cache/
 sgemm
 plots/*.svg
+condaenv*
 
 # Prerequisites
 *.d

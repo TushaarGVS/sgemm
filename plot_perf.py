@@ -32,7 +32,7 @@ def read_jsonl(filepath: str) -> Dict[str, List[float]]:
             data["size"].append(line["size"])
             data["runtime"].append(line["runtime"])
             data["tflops/s"].append(line["performance"])
-            data["gb/s"].append(line["bandwidth"])
+            data["gb/s"].append(line["throughput"])
     return data
 
 

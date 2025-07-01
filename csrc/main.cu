@@ -168,7 +168,7 @@ int main(int argc, char **argv) {
 			"Size", size,
 			"Runtime", elapsedTime / nRepeats,
 			"Performance", flops * 1e-12f * nRepeats / elapsedTime,
-			"Bandwidth", memAccess * 1e-9f * nRepeats / elapsedTime
+			"Throughput", memAccess * 1e-9f * nRepeats / elapsedTime
 		);
         // clang-format on
 

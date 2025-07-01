@@ -10,12 +10,16 @@ CompileFlags:
     - -arch*
     - -Xcudafe*
     - -Xfatbin*
+    - -Xcompiler*
+    - -Xnvlink*
+    - -Xptxas*
     - --options-file
     - -forward-unknown-to-host-compiler
     - --use_fast_math
     - --expt-extended-lambda
     - --expt-relaxed-constexpr
     - -gencode*
+    - -rdc=true
   Add:
     - -std=c++20
     # Change the CUDA path to the one used by the environment, as well as the GPU
