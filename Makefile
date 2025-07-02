@@ -3,7 +3,7 @@
 # Distributed under the MIT License. See LICENSE for details.
 
 # For details about phony targets, see: https://stackoverflow.com/a/2145605.
-.PHONY: all build debug clean profile bench 
+.PHONY: all build debug clean realclean profile bench 
 
 CMAKE := cmake
 BUILD_DIR := build
@@ -44,10 +44,16 @@ debug:
 	@$(MAKE) -C $(BUILD_DIR)
 	@echo "Debug build complete."
 
-# Clean up the build, profile, and benchmark dirs.
+# Clean up the build dir.
 # Usage: `make clean`.
 clean:
+	@echo "Removing \`$(BUILD_DIR)\` dir ..."
+	@rm -rf $(BUILD_DIR)
+	@echo "Done."
+
 # Remove the build, profile, benchmark, and plots dirs.
+# Usage: `make realclean`.
+realclean:
 	@echo "Removing ..."
 	@echo " + \`$(BUILD_DIR)\`"
 	@echo " + \`$(PROFILE_DIR)\`"
@@ -61,7 +67,7 @@ clean:
 
 # Profiling a kernel using NVIDIA Nsight Compute.
 # Once built, `./sgemm` will be the executable (see `add_executable` in CMakeLists.txt).
-# Usage: `make profile KERNEL=<int>`.
+# Usage: `make profile KERNEL=<kernel-num>`.
 profile:
 	@echo "Profiling kernel-$(KERNEL) ..."
 	@mkdir -p $(PROFILE_DIR)
@@ -74,18 +80,23 @@ profile:
 	@ncu-ui $(PROFILE_DIR)/$(KERNEL).ncu-rep
 
 # Benchmarking the kernel.
-# Usage: `make bench`.
+# Usage: `make bench [KERNEL=<kernel-num1>,<kernel-num2>,...]`.
 bench:
-	@echo "Benchmarking all kernels to \`$(BENCHMARK_DIR)\` dir ..."
+	@echo "Benchmarking kernels to \`$(BENCHMARK_DIR)\` dir ..."
 	@mkdir -p $(BENCHMARK_DIR)
 	@count=$(shell ls ./csrc/kernels | wc -l); \
-	for kernel in $$(seq 0 $$count); do \
+	if [ -z "$(KERNEL)" ]; then \
+		KERNEL_LIST=$$(seq 0 $$count); \
+	else \
+		KERNEL_LIST=$$(echo "$$KERNEL" | tr ',' '\n'); \
+	fi; \
+	for kernel in $$KERNEL_LIST; do \
 		echo "Benchmarking kernel-$$kernel ..." && \
 		./sgemm $$kernel | \
 		awk '\
 			/--- PERFORMANCE ---/ {capture=1; next} \
 			capture && /^\+\s/ { \
-				key = tolower($$2); \
+				key = $$2; \
 				val = $$4; \
 				gsub("s|GFLOPs/s|TFLOPs/s|GB/s|TB/s", "", val); \
 				metrics[key] = val; \

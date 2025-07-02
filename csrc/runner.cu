@@ -32,37 +32,37 @@ void printCudaDeviceInfo() {
     // clang-format off
 	fmt::println(
 		R"(-------- DEVICE PROPERTIES --------
-+ {:<21}: {}
-+ {:<21}: {}
-+ {:<21}: {}.{}
-+ {:<21}: {}
-+ {:<21}: {}
-+ {:<21}: {}
-+ {:<21}: {}
-+ {:<21}: {}MB
-+ {:<21}: {}KB
-+ {:<21}: {}KB
-+ {:<21}: {}KB
-+ {:<21}: {}
++ {:<21} : {}
++ {:<21} : {}
++ {:<21} : {}.{}
++ {:<21} : {}
++ {:<21} : {}
++ {:<21} : {}
++ {:<21} : {}
++ {:<21} : {}MB
++ {:<21} : {}KB
++ {:<21} : {}KB
++ {:<21} : {}KB
++ {:<21} : {}
 ------------------------------------)",
-		"Device ID", deviceId,
-		"Name", prop.name,
-		"Compute capability", prop.major, prop.minor,
-		"Num SMs", prop.multiProcessorCount,
-		"Memory bus width", prop.memoryBusWidth,
-		"Max threads per block", prop.maxThreadsPerBlock,
-		"Max threads per SM", prop.maxThreadsPerMultiProcessor,
-		"Total global mem", prop.totalGlobalMem / 1024 / 1024,
-		"Shared mem per block", prop.sharedMemPerBlock / 1024,
-		"Shared mem per SM", prop.sharedMemPerMultiprocessor / 1024,
-		"Total const mem", prop.totalConstMem / 1024,
-		"Warp size", prop.warpSize
+		"deviceId", deviceId,
+		"name", prop.name,
+		"computeCapability", prop.major, prop.minor,
+		"numSms", prop.multiProcessorCount,
+		"memoryBusWidth", prop.memoryBusWidth,
+		"maxThreadsPerBlock", prop.maxThreadsPerBlock,
+		"maxThreadsPerSm", prop.maxThreadsPerMultiProcessor,
+		"totalGlobalMem", prop.totalGlobalMem / 1024 / 1024,
+		"sharedMemPerBlock", prop.sharedMemPerBlock / 1024,
+		"sharedMemPerSm", prop.sharedMemPerMultiprocessor / 1024,
+		"totalConstMem", prop.totalConstMem / 1024,
+		"warpSize", prop.warpSize
 	);
     // clang-format on
 }
 
 void randomizeMatrix(float *mat, size_t size) {
-    srand(time(nullptr));
+    srand(time(nullptr));  // seed
     for (size_t i = 0; i < size; i++) {
         // Random floats as ({0, 1, ..., 4} + {0, 0.01, ..., 0.04}) * {-1, 1}.
         float tmp = (float)(rand() % 5) + 0.01 * (float)(rand() % 5);

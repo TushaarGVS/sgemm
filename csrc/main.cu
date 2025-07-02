@@ -160,15 +160,15 @@ int main(int argc, char **argv) {
         // clang-format off
 		fmt::println(
 			R"(--- PERFORMANCE ---
-+ {:<15}: {}
-+ {:<15}: {}s
-+ {:<15}: {}TFLOPs/s
-+ {:<15}: {}GB/s
++ {:<15} : {}
++ {:<15} : {}s
++ {:<15} : {}TFLOPs/s
++ {:<15} : {}GB/s
 -------------------)",
-			"Size", size,
-			"Runtime", elapsedTime / nRepeats,
-			"Performance", flops * 1e-12f * nRepeats / elapsedTime,
-			"Throughput", memAccess * 1e-9f * nRepeats / elapsedTime
+			"size", size,
+			"runtime", elapsedTime / nRepeats,
+			"flopsThroughput", flops * 1e-12f * nRepeats / elapsedTime,
+			"memThroughput", memAccess * 1e-9f * nRepeats / elapsedTime
 		);
         // clang-format on
 

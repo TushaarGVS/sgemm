@@ -9,15 +9,15 @@ Accompanying repo for the blog post: https://tushaargvs.github.io/posts/matmul.h
 
 Running on a single A100 GPU:
 
-![SGEMM performance](plots/perf_tflopsps.svg)
+<img src="plots/perf_tflopsps.png" alt="SGEMM performance" width="600"/>
 
 FLOPS throughput (TFLOPs/s) for SGEMM with matrices of size `M = K = N = 8192`:
 
-| Kernel            | FLOPS throughput (TFLOPs/s) | Relative to cuBLAS |
-| ----------------- | --------------------------- | ------------------ |
-| 0: cuBLAS         | $1.2015362 \times 10^7$     | $100\%$            |
-| 1: Naive          | $0.15457365$                |                    |
-| 2: GMEM coalesced | $0.80059683$                |                    |
+|      Kernel       | FLOPS throughput (TFLOPs/s) | Relative to cuBLAS |
+| :---------------: | :-------------------------: | :----------------: |
+|     0: cuBLAS     |          1.386e+07          |      100.000%      |
+|     1: Naive      |          2.934e-01          |       0.000%       |
+| 2: GMEM coalesced |          2.742e+00          |       0.000%       |
 
 ## Installation
 
@@ -59,7 +59,7 @@ make profile KERNEL=<kernel-num>
 To benchmark all kernels, run:
 
 ```shell
-make bench
+make bench [KERNEL=<kernel-num1>,<kernel-num2>,...]
 ```
 
 ### Troubleshooting
@@ -68,6 +68,7 @@ make bench
 <summary>
     NVCC warning: incompatible redefinition for option <code>compiler-bindir</code>
 </summary>
+<br/>
 This warning means that multiple values for <code>-ccbin</code> 
 (= <code>--compiler-bindir</code>) were passed to <code>nvcc</code>. You can verify if 
 this is the case by running:
@@ -86,6 +87,7 @@ export NVCC_PREPEND_FLAGS=" -ccbin=<path-to-compiler>"
 <summary>
     <code>ERR_NVGPUCTRPERM</code>: Permission issue
 </summary>
+<br/>
 You might need sudo access to run <code>ncu</code> since it accesses the GPU Performance
 Counters. For more info, see:
 <a href="https://developer.nvidia.com/nvidia-development-tools-solutions-err_nvgpuctrperm-permission-issue-performance-counters">
