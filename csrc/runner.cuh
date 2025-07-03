@@ -11,15 +11,19 @@
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
 
-namespace sgemm {
-constexpr uint CEIL_DIV(uint a, uint b) {
+namespace sgemm::utils {
+__forceinline__ constexpr uint CEIL_DIV(uint a, uint b) {
     return (a + b - 1) / b;
 }
 
-namespace utils {
 void cudaCheck(cudaError_t err, const char *file, int line);
 
 void printCudaDeviceInfo();
+
+/**
+ * Adapted from: https://github.com/NVIDIA/nvbench/blob/main/nvbench/detail/l2flush.cuh.
+ */
+void l2Flush();
 
 /**
  * Taken from: https://github.com/siboehm/SGEMM_CUDA/blob/master/src/runner.cu.
@@ -47,5 +51,4 @@ bool allClose(const float *mat, const float *matRef, size_t size, float atol = 1
 void printMatrix(
     const float *mat, size_t nRows, size_t nCols, const char *name = "MATRIX"
 );
-}  // namespace utils
-}  // namespace sgemm
+}  // namespace sgemm::utils

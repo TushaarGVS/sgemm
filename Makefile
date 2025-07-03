@@ -74,10 +74,12 @@ profile:
 # --set full: use the full metric set, i.e., memory throughput, SM util, etc.
 	@ncu \
 		--set full \
-		--export $(PROFILE_DIR)/$(KERNEL) \
+		--export $(PROFILE_DIR)/$(KERNEL).ncu-rep \
 		--force-overwrite \
 		./sgemm $(KERNEL)
-	@ncu-ui $(PROFILE_DIR)/$(KERNEL).ncu-rep
+# If you have ncu-ui installed, you can uncomment the following line to open the 
+# profile in a GUI.
+	# @ncu-ui $(PROFILE_DIR)/$(KERNEL).ncu-rep
 
 # Benchmarking the kernel.
 # Usage: `make bench [KERNEL=<kernel-num1>,<kernel-num2>,...]`.

@@ -13,11 +13,11 @@ Running on a single A100 GPU:
 
 FLOPS throughput (TFLOPs/s) for SGEMM with matrices of size `M = K = N = 8192`:
 
-|      Kernel       | FLOPS throughput (TFLOPs/s) | Relative to cuBLAS |
-| :---------------: | :-------------------------: | :----------------: |
-|     0: cuBLAS     |          1.386e+07          |      100.000%      |
-|     1: Naive      |          2.934e-01          |       0.000%       |
-| 2: GMEM coalesced |          2.742e+00          |       0.000%       |
+|       Kernel        | FLOPS throughput (TFLOPs/s) | Relative to cuBLAS |
+| :-----------------: | :-------------------------: | :----------------: |
+|     0.0: cuBLAS     |          4.995e+02          |      100.000%      |
+|     1.0: Naive      |          5.730e-04          |       0.000%       |
+| 2.0: GMEM coalesced |          5.363e-03          |       0.001%       |
 
 ## Installation
 

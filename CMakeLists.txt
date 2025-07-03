@@ -117,6 +117,7 @@ target_sources(
     csrc/runner.cuh
     csrc/kernels/1_sgemm_naive.cuh
     csrc/kernels/2_sgemm_gmem_coalesce.cuh
+    csrc/kernels/3_sgemm_smem_blocking.cuh
 )
 target_link_libraries(
     sgemm 

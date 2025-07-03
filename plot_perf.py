@@ -25,12 +25,12 @@ KERNEL_IDX_TO_NAME = {
 
 
 def read_jsonl(filepath: str) -> Dict[str, List[float]]:
-    data = {"size": [], "runtime": [], "tflops/s": [], "gb/s": []}
+    data = {"matsize": [], "ms": [], "tflops/s": [], "gb/s": []}
     with open(filepath, "r") as f:
         for line in f:
             line = json.loads(line)
-            data["size"].append(line["size"])
-            data["runtime"].append(line["runtime"])
+            data["matsize"].append(line["matsize"])
+            data["ms"].append(line["runtime"])
             data["tflops/s"].append(line["flopsThroughput"])
             data["gb/s"].append(line["memThroughput"])
     return data
@@ -44,33 +44,39 @@ def get_data(benchmark_dir: str) -> pd.DataFrame:
             print(f"WARNING: kernel-{kernel_idx} performance data not found (omitted)")
             continue
         _data = read_jsonl(filepath)
-        n = len(_data["size"])
+        n = len(_data["matsize"])
         for i in range(n):
             records.append(
                 {
-                    "size": _data["size"][i],
-                    "runtime": _data["runtime"][i],
+                    "matsize": _data["matsize"][i],
+                    "ms": _data["ms"][i],
                     "tflops/s": _data["tflops/s"][i],
                     "gb/s": _data["gb/s"][i],
                     "kernel_idx": kernel_idx,
                 }
             )
     data = pd.DataFrame.from_records(records)
+    data["kernel_idx"] = data["kernel_idx"].astype("int32")
     return data
 
 
-def print_md_table(data: pd.DataFrame) -> None:
-    print("| Kernel | FLOPS throughput (TFLOPs/s) | Relative to cuBLAS |")
+def print_md_table(data: pd.DataFrame, matsize: int) -> None:
+    print(f"\nM = K = N = {matsize}")
+    print(f"| Kernel | FLOPS throughput (TFLOPs/s) | Relative to cuBLAS |")
     print("|:------:|:---------------------------:|:------------------:|")
-    for kernel_idx, kernel_name in KERNEL_IDX_TO_NAME.items():
-        tflops_s = data.loc[data["kernel_idx"] == kernel_idx, "tflops/s"].iloc[-1]
+    # Only retain rows in df corresponding to the given matsize.
+    data = data.loc[data["matsize"] == matsize]
+    for _, row in data.iterrows():
+        kernel_idx = row["kernel_idx"]
+        kernel_name = KERNEL_IDX_TO_NAME[kernel_idx]
+        tflops_s = row["tflops/s"]
         cublas_tflops_s = data.loc[data["kernel_idx"] == 0, "tflops/s"].iloc[-1]
         print(
             f"| {kernel_idx}: {kernel_name} "
             f"| {tflops_s:.3e} "
-            f"| {tflops_s * 100/ cublas_tflops_s:.3f}% |"
+            f"| {tflops_s * 100 / cublas_tflops_s:.3f}% |"
         )
-    print()
+    print("\n")
 
 
 def plot_perf(
@@ -85,10 +91,17 @@ def plot_perf(
     os.makedirs(output_dir, exist_ok=True)
 
     plt.figure(figsize=(12, 5))
+    _title = ""
+    if perf_colname == "tflops/s":
+        _title = " FLOPs throughput"
+    elif perf_colname == "gb/s":
+        _title = " memory throughput"
+    elif perf_colname == "ms":
+        _title = " runtime"
+    plt.title(f"SGEMM{_title} [A100 (CUDA 12.9), unlocked clock, 400W]", fontsize=10)
     # cuBLAS is red, the rest are viridis.
-    colors = ["red"] + sns.color_palette(
-        "viridis", n_colors=len(KERNEL_IDX_TO_NAME) - 1
-    )
+    num_kernels = data["kernel_idx"].nunique()
+    colors = ["red"] + sns.color_palette("viridis", n_colors=num_kernels - 1)
     plt.xlabel("M = K = N")
     plt.ylabel(perf_colname)
     if xscale == "log2":
@@ -101,24 +114,28 @@ def plot_perf(
         plt.yscale(yscale)
 
     sns.scatterplot(
-        x="size",
+        x="matsize",
         y=perf_colname,
         data=data,
         hue="kernel_idx",
         palette=colors,
     )
-    sns.lineplot(x="size", y=perf_colname, data=data, hue="kernel_idx", palette=colors)
+    sns.lineplot(
+        x="matsize", y=perf_colname, data=data, hue="kernel_idx", palette=colors
+    )
     # Don't use the legend; instead, add the text to the plot.
-    for kernel_idx, kernel_name in KERNEL_IDX_TO_NAME.items():
+    for _, row in data.iterrows():
+        kernel_idx = row["kernel_idx"]
+        kernel_name = KERNEL_IDX_TO_NAME[kernel_idx]
         plt.text(
-            data.loc[data["kernel_idx"] == kernel_idx, "size"].iloc[-1] + 300,
-            data.loc[data["kernel_idx"] == kernel_idx, perf_colname].iloc[-1],
+            row["matsize"] + 300,
+            row[perf_colname],
             f"{kernel_idx}: {kernel_name}",
             fontsize=12,
             ha="left",
-            color=colors[kernel_idx],
+            color=colors[int(kernel_idx)],
         )
-    plt.xticks(data["size"])
+    plt.xticks(data["matsize"])
     plt.gca().get_legend().remove()  # remove the legend.
 
     perf_colname_no_slash = perf_colname.replace("/", "p")  # "gb/s" -> "gbps"
@@ -133,8 +150,8 @@ if __name__ == "__main__":
     output_dir = os.path.join(_cwd, "plots")
 
     data = get_data(benchmark_dir)
-    print_md_table(data)
-    for perf_colname in ["tflops/s", "gb/s"]:
+    print_md_table(data, matsize=8192)
+    for perf_colname in ["tflops/s", "gb/s", "ms"]:
         print(f"Plotting `{perf_colname}` ...")
         plot_perf(
             data=data,

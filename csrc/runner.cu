@@ -7,12 +7,17 @@
 
 #include "kernels/1_sgemm_naive.cuh"
 #include "kernels/2_sgemm_gmem_coalesce.cuh"
+#include "kernels/3_sgemm_smem_blocking.cuh"
 #include "runner.cuh"
 
 #include <cstdlib>
 #include <ctime>
+#include <cuda_device_runtime_api.h>
+#include <cuda_runtime_api.h>
 #include <fmt/base.h>
 #include <fmt/format.h>
+
+#define CUDA_CHECK(err) sgemm::utils::cudaCheck(err, __FILE__, __LINE__)
 
 namespace sgemm::utils {
 void cudaCheck(cudaError_t err, const char *file, int line) {
@@ -26,9 +31,9 @@ void cudaCheck(cudaError_t err, const char *file, int line) {
 
 void printCudaDeviceInfo() {
     int deviceId;
-    cudaGetDevice(&deviceId);
+    CUDA_CHECK(cudaGetDevice(&deviceId));
     cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, deviceId);
+    CUDA_CHECK(cudaGetDeviceProperties(&prop, deviceId));
     // clang-format off
 	fmt::println(
 		R"(-------- DEVICE PROPERTIES --------
@@ -38,27 +43,40 @@ void printCudaDeviceInfo() {
 + {:<21} : {}
 + {:<21} : {}
 + {:<21} : {}
-+ {:<21} : {}
-+ {:<21} : {}MB
-+ {:<21} : {}KB
-+ {:<21} : {}KB
-+ {:<21} : {}KB
++ {:<21} : {} B
++ {:<21} : {} GB
++ {:<21} : {} KB
++ {:<21} : {} KB
++ {:<21} : {} KB
 + {:<21} : {}
 ------------------------------------)",
 		"deviceId", deviceId,
 		"name", prop.name,
 		"computeCapability", prop.major, prop.minor,
 		"numSms", prop.multiProcessorCount,
-		"memoryBusWidth", prop.memoryBusWidth,
 		"maxThreadsPerBlock", prop.maxThreadsPerBlock,
 		"maxThreadsPerSm", prop.maxThreadsPerMultiProcessor,
-		"totalGlobalMem", prop.totalGlobalMem / 1024 / 1024,
+        "memoryBusWidth", prop.memoryBusWidth,
+		"totalGlobalMem", prop.totalGlobalMem / 1024 / 1024 / 1024,
 		"sharedMemPerBlock", prop.sharedMemPerBlock / 1024,
 		"sharedMemPerSm", prop.sharedMemPerMultiprocessor / 1024,
 		"totalConstMem", prop.totalConstMem / 1024,
 		"warpSize", prop.warpSize
 	);
     // clang-format on
+}
+
+void l2Flush() {
+    int deviceId;
+    CUDA_CHECK(cudaGetDevice(&deviceId));
+    int l2CacheSize;
+    CUDA_CHECK(cudaDeviceGetAttribute(&l2CacheSize, cudaDevAttrL2CacheSize, deviceId));
+    int *buf;  // we will use this to flush out CUDA L2 cache
+    if (l2CacheSize > 0) {
+        CUDA_CHECK(cudaMalloc(&buf, l2CacheSize));
+        CUDA_CHECK(cudaMemsetAsync(buf, 0, l2CacheSize));  // flush the cache
+        CUDA_CHECK(cudaFree(buf));
+    }
 }
 
 void randomizeMatrix(float *mat, size_t size) {
@@ -136,6 +154,15 @@ void runKernel(
             dim3 gridDim(CEIL_DIV(M, 32), CEIL_DIV(N, 32));
             dim3 blockDim(32, 32);
             sgemm::kernels::sgemm_gmem_coalesce<<<gridDim, blockDim>>>(
+                A, B, C, alpha, beta, M, K, N
+            );
+            break;
+        }
+        case 3: {
+            // SGEMM kernel with shared memory blocking.
+            dim3 gridDim(CEIL_DIV(M, 32), CEIL_DIV(N, 32));
+            dim3 blockDim(32, 32);
+            sgemm::kernels::sgemm_smem_blocking<<<gridDim, blockDim>>>(
                 A, B, C, alpha, beta, M, K, N
             );
             break;
