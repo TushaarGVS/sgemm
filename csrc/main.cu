@@ -88,9 +88,9 @@ int main(int argc, char **argv) {
         }
 
         // Generate random matrices.
-        sgemm::utils::randomizeMatrix(A, numel);
-        sgemm::utils::randomizeMatrix(B, numel);
-        sgemm::utils::randomizeMatrix(C, numel);
+        sgemm::utils::initRandom(A, numel);
+        sgemm::utils::initRandom(B, numel);
+        sgemm::utils::initRandom(C, numel);
 
         // Allocate memory for the device matrices.
         // Convention: `_d` -> device.
@@ -145,7 +145,7 @@ int main(int argc, char **argv) {
         }
 
         // We will now run the custom kernel `nRepeats` times and time it.
-        for (int i = 0; i < nRepeats; i++) {
+        for (int j = 0; j < nRepeats; j++) {
             // Start the timer.
             CUDA_CHECK(cudaEventRecord(start));
 
@@ -158,7 +158,7 @@ int main(int argc, char **argv) {
             // NOTE: `cudaEventElapsedTime` returns the time in milliseconds. For
             // reference, see:
             // https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__EVENT.html.
-            CUDA_CHECK(cudaEventElapsedTime(&elapsedTimeMs[i], start, stop));
+            CUDA_CHECK(cudaEventElapsedTime(&elapsedTimeMs[j], start, stop));
             // Flush the L2 cache.
             sgemm::utils::l2Flush();
         }
@@ -169,36 +169,37 @@ int main(int argc, char **argv) {
         // (esp. section on benchmarking CUDA code).
         int midpointIterIdx = nRepeats / 2;
         float avgElapsedTimeMs = 0.0f;
-        for (int i = midpointIterIdx; i < nRepeats; i++) {
-            avgElapsedTimeMs += elapsedTimeMs[i];
+        for (int k = midpointIterIdx; k < nRepeats; k++) {
+            avgElapsedTimeMs += elapsedTimeMs[k];
         }
         avgElapsedTimeMs = avgElapsedTimeMs / (nRepeats - midpointIterIdx);
         // GEMM FLOPs: 2MKN (for D := alpha * AB) + 2MN (for C := D + beta*C).
-        long flops = 2 * (M * K * N + M * N);
+        size_t flops = 2 * (size_t)M * K * N + 2 * M * N;
         double tflopsPerSec = flops * 1e-12f * 1e3f / avgElapsedTimeMs;
         // GEMM memory access: MK + KN + MN reads and MN writes.
-        long memAccess = (M * K + K * N + 2 * M * N) * sizeof(float);
+        size_t memAccess = ((size_t)M * K + K * N + 2 * M * N) * sizeof(float);
         double gbPerSec = memAccess * 1e-9f * 1e3f / avgElapsedTimeMs;
+        double arithmeticIntensity = (double)flops / memAccess;
         // clang-format off
             fmt::println(
                 R"(--- PERFORMANCE ---
-+ {:<15} : {}
-+ {:<15} : {}
-+ {:<15} : {} ms
-+ {:<15} : {} TFLOPs/s
-+ {:<15} : {} GB/s
++ {:<19} : {}
++ {:<19} : {}
++ {:<19} : {} ms
++ {:<19} : {} TFLOPs/s
++ {:<19} : {} FLOPs/B
++ {:<19} : {} GB/s
 -------------------)",
                 "matsize", matsize,
                 "nRepeats", nRepeats - midpointIterIdx,
                 "runtime", avgElapsedTimeMs,
                 "flopsThroughput", tflopsPerSec,
+                "arithmeticIntensity", arithmeticIntensity,
                 "memThroughput", gbPerSec
             );
         // clang-format on
 
         // --- CLEANUP ---
-        fflush(stdout);
-
         // Reset the device memory to be the same as `d_CRef`.
         // Currently, `d_C` and `d_CRef` are not the same, which will cause problems
         // in the next run (with the next `size` in `sizes`).

@@ -4,7 +4,8 @@ Accompanying repo for the blog post: https://tushaargvs.github.io/posts/matmul.h
 
 > This repo was adapted from:
 >
-> - https://github.com/siboehm/SGEMM_CUDA and
+> - https://github.com/salykova/sgemm.cu,
+> - https://github.com/siboehm/SGEMM_CUDA, and
 > - https://github.com/wangzyon/NVIDIA_SGEMM_PRACTICE.
 
 Running on a single A100 GPU:
@@ -15,9 +16,10 @@ FLOPS throughput (TFLOPs/s) for SGEMM with matrices of size `M = K = N = 8192`:
 
 |       Kernel        | FLOPS throughput (TFLOPs/s) | Relative to cuBLAS |
 | :-----------------: | :-------------------------: | :----------------: |
-|     0.0: cuBLAS     |          4.995e+02          |      100.000%      |
-|     1.0: Naive      |          5.730e-04          |       0.000%       |
-| 2.0: GMEM coalesced |          5.363e-03          |       0.001%       |
+|     0.0: cuBLAS     |          2.345e+05          |      100.000%      |
+|     1.0: Naive      |          2.935e-01          |       0.000%       |
+| 2.0: GMEM coalesced |          2.743e+00          |       0.001%       |
+|  3.0: SMEM tiling   |          4.212e+00          |       0.002%       |
 
 ## Installation
 
@@ -46,20 +48,20 @@ conda remove -n sgemm-env --all
 Build the project and run it:
 
 ```shell
-make [VERBOSE=1] [-B] build
-[DEVICE=<device-idx>] ./sgemm <kernel-num>
+make [VERBOSE=1] [-B] build 2> err.log
+[DEVICE=<device-idx>] ./sgemm <kernel-num> 2> err.log
 ```
 
 To profile a kernel, run:
 
 ```shell
-make profile KERNEL=<kernel-num>
+make profile KERNEL=<kernel-num> 2> err.log
 ```
 
 To benchmark all kernels, run:
 
 ```shell
-make bench [KERNEL=<kernel-num1>,<kernel-num2>,...]
+make bench [KERNEL=<kernel-num1>,<kernel-num2>,...] 2> err.log
 ```
 
 ### Troubleshooting

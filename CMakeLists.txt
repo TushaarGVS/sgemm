@@ -49,7 +49,8 @@ set(CMAKE_CUDA_ARCHITECTURES "native")
 set(CMAKE_CUDA_HOST_COMPILER "${CMAKE_CXX_COMPILER}")
 # ONLY if running in debug mode, remove most of the optimizations.
 add_compile_options(
-    "$<$<AND:$<CONFIG:Debug>,$<COMPILE_LANGUAGE:CUDA>>:-g -G --source-in-ptx>"
+    "$<$<AND:$<CONFIG:Debug>,$<COMPILE_LANGUAGE:CXX>>:-g;>"
+    "$<$<AND:$<CONFIG:Debug>,$<COMPILE_LANGUAGE:CUDA>>:-g;-G;--source-in-ptx;>"
 )
 
 message(STATUS "CMAKE_CUDA_HOST_COMPILER: ${CMAKE_CUDA_HOST_COMPILER}")
@@ -92,7 +93,7 @@ set(
     -Xcudafe=--display_error_number  # display error numbers (flag to cuda frontend)
     -Xfatbin=-compress-all  # no need to generate executables for different GPU archs
     -Xnvlink=--verbose
-    -Xptxas=--verbose  # parallel thread execution
+    -Xptxas=--verbose  # verbose PTX assembly output
     -Xptxas=--warn-on-spills
     -lineinfo
     --use_fast_math
@@ -117,7 +118,7 @@ target_sources(
     csrc/runner.cuh
     csrc/kernels/1_sgemm_naive.cuh
     csrc/kernels/2_sgemm_gmem_coalesce.cuh
-    csrc/kernels/3_sgemm_smem_blocking.cuh
+    csrc/kernels/3_sgemm_smem_tiling.cuh
 )
 target_link_libraries(
     sgemm 

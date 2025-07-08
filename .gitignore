@@ -11,6 +11,7 @@ cmake/
 sgemm
 plots/*.svg
 condaenv*
+*.log
 
 # Prerequisites
 *.d

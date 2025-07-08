@@ -20,12 +20,12 @@ KERNEL_IDX_TO_NAME = {
     0: "cuBLAS",
     1: "Naive",
     2: "GMEM coalesced",
-    3: "SMEM blocking",
+    3: "SMEM tiling",
 }
 
 
 def read_jsonl(filepath: str) -> Dict[str, List[float]]:
-    data = {"matsize": [], "ms": [], "tflops/s": [], "gb/s": []}
+    data = {"matsize": [], "ms": [], "tflops/s": [], "gb/s": [], "flops/b": []}
     with open(filepath, "r") as f:
         for line in f:
             line = json.loads(line)
@@ -33,6 +33,7 @@ def read_jsonl(filepath: str) -> Dict[str, List[float]]:
             data["ms"].append(line["runtime"])
             data["tflops/s"].append(line["flopsThroughput"])
             data["gb/s"].append(line["memThroughput"])
+            data["flops/b"].append(line["arithmeticIntensity"])
     return data
 
 
@@ -52,6 +53,7 @@ def get_data(benchmark_dir: str) -> pd.DataFrame:
                     "ms": _data["ms"][i],
                     "tflops/s": _data["tflops/s"][i],
                     "gb/s": _data["gb/s"][i],
+                    "flops/b": _data["flops/b"][i],
                     "kernel_idx": kernel_idx,
                 }
             )
@@ -90,26 +92,30 @@ def plot_perf(
 ):
     os.makedirs(output_dir, exist_ok=True)
 
-    plt.figure(figsize=(12, 5))
+    plt.figure(figsize=(12, 6))
     _title = ""
+    _y_colname = perf_colname
     if perf_colname == "tflops/s":
         _title = " FLOPs throughput"
+        _y_colname = "FLOPs throughput\nTFLOPs/s"
     elif perf_colname == "gb/s":
         _title = " memory throughput"
+        _y_colname = "Memory throughput\nGB/s"
     elif perf_colname == "ms":
         _title = " runtime"
+        _y_colname = "Runtime\nms"
     plt.title(f"SGEMM{_title} [A100 (CUDA 12.9), unlocked clock, 400W]", fontsize=10)
     # cuBLAS is red, the rest are viridis.
     num_kernels = data["kernel_idx"].nunique()
     colors = ["red"] + sns.color_palette("viridis", n_colors=num_kernels - 1)
     plt.xlabel("M = K = N")
-    plt.ylabel(perf_colname)
+    plt.ylabel(_y_colname)
     if xscale == "log2":
         plt.xscale("log", base=2)
     else:
         plt.xscale(xscale)
     if yscale == "log2":
-        plt.yscale("log2")
+        plt.yscale("log", base=2)
     else:
         plt.yscale(yscale)
 
@@ -124,24 +130,70 @@ def plot_perf(
         x="matsize", y=perf_colname, data=data, hue="kernel_idx", palette=colors
     )
     # Don't use the legend; instead, add the text to the plot.
+    max_matsize = data["matsize"].max()
     for _, row in data.iterrows():
-        kernel_idx = row["kernel_idx"]
+        if row["matsize"] != max_matsize:
+            continue
+        kernel_idx = int(row["kernel_idx"])
         kernel_name = KERNEL_IDX_TO_NAME[kernel_idx]
         plt.text(
-            row["matsize"] + 300,
+            row["matsize"] + 80,
             row[perf_colname],
             f"{kernel_idx}: {kernel_name}",
             fontsize=12,
             ha="left",
-            color=colors[int(kernel_idx)],
+            color=colors[kernel_idx],
         )
     plt.xticks(data["matsize"])
-    plt.gca().get_legend().remove()  # remove the legend.
+    plt.gca().get_legend().remove()  # remove the legend
 
     perf_colname_no_slash = perf_colname.replace("/", "p")  # "gb/s" -> "gbps"
     plt.savefig(os.path.join(output_dir, f"perf_{perf_colname_no_slash}.png"))
     if also_save_svg:
         plt.savefig(os.path.join(output_dir, f"perf_{perf_colname_no_slash}.svg"))
+
+
+def plot_flops_roofline(
+    data: pd.DataFrame, output_dir: str, also_save_svg: bool = False
+):
+    print("Plotting flops roofline ...")
+    os.makedirs(output_dir, exist_ok=True)
+
+    num_kernels = data["kernel_idx"].nunique()
+    colors = ["red"] + sns.color_palette("viridis", n_colors=num_kernels - 1)
+    plt.figure(figsize=(12, 6))
+    plt.title(f"SGEMM FLOPs roofline [A100 (CUDA 12.9), unlocked clock, 400W]")
+    plt.xlabel("Arithmetic intensity\nFLOPs/B")
+    plt.ylabel("FLOPS throughput\nTFLOPs/s")
+    plt.xscale("log", base=2)
+    plt.yscale("log", base=2)
+
+    sns.scatterplot(
+        x="flops/b",
+        y="tflops/s",
+        data=data,
+        hue="kernel_idx",
+        palette=colors,
+    )
+    sns.lineplot(x="flops/b", y="tflops/s", data=data, hue="kernel_idx", palette=colors)
+    max_flops_b = data["flops/b"].max()
+    for _, row in data.iterrows():
+        if row["flops/b"] != max_flops_b:
+            continue
+        kernel_idx = int(row["kernel_idx"])
+        kernel_name = KERNEL_IDX_TO_NAME[kernel_idx]
+        plt.text(
+            row["flops/b"] + 30,
+            row["tflops/s"],
+            f"{kernel_idx}: {kernel_name}",
+            fontsize=12,
+            ha="left",
+            color=colors[kernel_idx],
+        )
+    plt.gca().get_legend().remove()
+    plt.savefig(os.path.join(output_dir, f"flops_roofline.png"))
+    if also_save_svg:
+        plt.savefig(os.path.join(output_dir, f"flops_roofline.svg"))
 
 
 if __name__ == "__main__":
@@ -157,7 +209,7 @@ if __name__ == "__main__":
             data=data,
             output_dir=output_dir,
             perf_colname=perf_colname,
-            xscale="log2",
+            xscale="linear",
             yscale="log",
-            also_save_svg=True if perf_colname == "tflops/s" else False,
         )
+    plot_flops_roofline(data=data, output_dir=output_dir)

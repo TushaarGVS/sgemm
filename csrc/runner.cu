@@ -7,13 +7,15 @@
 
 #include "kernels/1_sgemm_naive.cuh"
 #include "kernels/2_sgemm_gmem_coalesce.cuh"
-#include "kernels/3_sgemm_smem_blocking.cuh"
+#include "kernels/3_sgemm_smem_tiling.cuh"
 #include "runner.cuh"
 
+#include <cassert>
 #include <cstdlib>
 #include <ctime>
 #include <cuda_device_runtime_api.h>
 #include <cuda_runtime_api.h>
+#include <driver_types.h>
 #include <fmt/base.h>
 #include <fmt/format.h>
 
@@ -43,6 +45,10 @@ void printCudaDeviceInfo() {
 + {:<21} : {}
 + {:<21} : {}
 + {:<21} : {}
++ {:<21} : {}
++ {:<21} : {}
++ {:<21} : {}
++ {:<21} : {}
 + {:<21} : {} B
 + {:<21} : {} GB
 + {:<21} : {} KB
@@ -56,6 +62,10 @@ void printCudaDeviceInfo() {
 		"numSms", prop.multiProcessorCount,
 		"maxThreadsPerBlock", prop.maxThreadsPerBlock,
 		"maxThreadsPerSm", prop.maxThreadsPerMultiProcessor,
+        "threadsPerWarp", prop.warpSize,
+        "registersPerBlock", prop.regsPerBlock,
+        "registersPerSm", prop.regsPerMultiprocessor,
+        "numWarpsPerSm", prop.maxThreadsPerMultiProcessor / prop.warpSize,
         "memoryBusWidth", prop.memoryBusWidth,
 		"totalGlobalMem", prop.totalGlobalMem / 1024 / 1024 / 1024,
 		"sharedMemPerBlock", prop.sharedMemPerBlock / 1024,
@@ -76,16 +86,6 @@ void l2Flush() {
         CUDA_CHECK(cudaMalloc(&buf, l2CacheSize));
         CUDA_CHECK(cudaMemsetAsync(buf, 0, l2CacheSize));  // flush the cache
         CUDA_CHECK(cudaFree(buf));
-    }
-}
-
-void randomizeMatrix(float *mat, size_t size) {
-    srand(time(nullptr));  // seed
-    for (size_t i = 0; i < size; i++) {
-        // Random floats as ({0, 1, ..., 4} + {0, 0.01, ..., 0.04}) * {-1, 1}.
-        float tmp = (float)(rand() % 5) + 0.01 * (float)(rand() % 5);
-        tmp = tmp * (rand() % 2 ? 1 : -1);
-        mat[i] = tmp;
     }
 }
 
@@ -160,11 +160,24 @@ void runKernel(
         }
         case 3: {
             // SGEMM kernel with shared memory blocking.
+            // NOTE: This kernel assumes square matrices; guards for non-square matrices
+            // are not implemented.
+            assert(M == N && N == K);
+            // NOTE: This kernel assumes that M, N, and K are divisible by 32. There
+            // are no explicit guardrails for this, so we assert it here.
+            assert(M % 32 == 0 && N % 32 == 0 && K % 32 == 0);
+
             dim3 gridDim(CEIL_DIV(M, 32), CEIL_DIV(N, 32));
             dim3 blockDim(32, 32);
-            sgemm::kernels::sgemm_smem_blocking<<<gridDim, blockDim>>>(
-                A, B, C, alpha, beta, M, K, N
+            // In this kernel, we don't use L1 cache (only SMEM is used). Hence, we
+            // "carve out" all of the L1 to SMEM.
+            cudaFuncSetAttribute(
+                sgemm::kernels::sgemm_smem_tiling<32>,
+                cudaFuncAttributePreferredSharedMemoryCarveout,
+                cudaSharedmemCarveoutMaxShared
             );
+            sgemm::kernels::sgemm_smem_tiling<32>
+                <<<gridDim, blockDim>>>(A, B, C, alpha, beta, M, K, N);
             break;
         }
         default: {
@@ -172,38 +185,5 @@ void runKernel(
             exit(EXIT_FAILURE);
         }
     }
-}
-
-bool allClose(const float *mat, const float *matRef, size_t size, float atol) {
-    float diff = 0.0;
-    for (uint i = 0; i < size; i++) {
-        diff = std::fabs(matRef[i] - mat[i]);
-        if (diff > atol) {
-            fmt::println(
-                "Error at index={} with atol={} (ref={}, mat={}, diff={})",
-                i,
-                atol,
-                matRef[i],
-                mat[i],
-                diff
-            );
-            return false;
-        }
-    }
-    return true;
-}
-
-void printMatrix(const float *mat, size_t nRows, size_t nCols, const char *name) {
-    fmt::print("{} [{} x {}]:\n[", name, nRows, nCols);
-    for (size_t i = 0; i < nRows; ++i) {
-        for (size_t j = 0; j < nCols; ++j) {
-            fmt::print("{:>7.2f}", mat[i * nCols + j]);
-            if (j + 1 < nCols)
-                fmt::print(", ");
-        }
-        if (i + 1 < nRows)
-            fmt::print(";\n ");
-    }
-    fmt::print("]\n");
 }
 }  // namespace sgemm::utils
